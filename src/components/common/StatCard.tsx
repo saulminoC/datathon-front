@@ -1,21 +1,45 @@
 // src/components/common/StatCard.tsx
-import { Users, BrainCircuit, AlertTriangle, CheckCircle } from 'lucide-react';
-import type { StatData } from '../../types';
-const icons = {
-  Users: <Users className="text-blue-600" />,
-  Brain: <BrainCircuit className="text-purple-600" />,
-  Alert: <AlertTriangle className="text-amber-600" />,
-  Check: <CheckCircle className="text-emerald-600" />
-};
+import React from 'react';
 
-export const StatCard = ({ data }: { data: StatData }) => {
+interface StatCardProps {
+  title: string;
+  value: string;
+  icon: React.ReactNode; // Ahora acepta el componente de Lucide directamente
+  trend?: string;
+  description?: string;
+}
+
+export const StatCard: React.FC<StatCardProps> = ({ 
+  title, 
+  value, 
+  icon, 
+  trend, 
+  description 
+}) => {
   return (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-      <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center mb-4">
-        {icons[data.iconName as keyof typeof icons]}
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-slate-500">{title}</p>
+          <h3 className="text-2xl font-bold text-slate-900">{value}</h3>
+        </div>
+        <div className="p-2 bg-slate-50 rounded-lg">
+          {icon}
+        </div>
       </div>
-      <p className="text-sm text-slate-500 font-medium">{data.label}</p>
-      <p className="text-2xl font-bold mt-1">{data.value}</p>
+      
+      {(trend || description) && (
+        <div className="mt-4 flex items-center gap-2">
+          {trend && (
+            <span className="text-xs font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md">
+              {trend}
+            </span>
+          )}
+          {description && (
+            <span className="text-xs text-slate-400">{description}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 };

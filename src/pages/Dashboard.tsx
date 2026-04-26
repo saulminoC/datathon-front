@@ -1,282 +1,200 @@
 import React, { useState, useEffect } from 'react';
+import { Users, MessageSquare, Activity, Loader2 } from 'lucide-react';
 import {
-  Users,
-  Target,
-  AlertCircle,
-  TrendingDown,
-  MessageSquare,
-} from 'lucide-react';
-import { StatCard } from '../components/common/StatCard';
-import { MapaMexico } from './MapaMexico';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  PieChart,
-  Pie,
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, Legend
 } from 'recharts';
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
 const API_BASE = 'http://localhost:8000';
 
-const RIESGO_COLORS: Record<string, string> = {
-  Bajo:  '#10b981',
-  Medio: '#f59e0b',
-  Alto:  '#f43f5e',
-};
+export const Dashboard: React.FC = () => {
+  const [clientesData, setClientesData] = useState<any[]>([]);
+  const [conversacionesData, setConversacionesData] = useState<any[]>([]);
+  const [transaccionesData, setTransaccionesData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-const MES_LABELS: Record<string, string> = {
-  '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr',
-  '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Ago',
-  '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic',
-};
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        const [clientesRes, convRes, txsRes] = await Promise.all([
+          fetch(`${API_BASE}/api/dashboard/clientes-churn`),
+          fetch(`${API_BASE}/api/dashboard/conversaciones-motivos`),
+          fetch(`${API_BASE}/api/dashboard/transacciones-mensuales`)
+        ]);
 
-const TEMA_COLORS = ['#6366f1','#f43f5e','#f59e0b','#10b981','#8b5cf6']; // Solo 5 colores necesarios ahora
+        // Evitamos que crashee si la API devuelve error 404
+        const clientesJson = clientesRes.ok ? await clientesRes.json() : [];
+        console.log("DATOS RECIBIDOS CHURN:", clientesJson); 
+        const convJson = convRes.ok ? await convRes.json() : [];
+        const txsJson = txsRes.ok ? await txsRes.json() : [];
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
-interface RiesgoItem { name: string; value: number; pct: number; color: string; }
-interface TxMensual { mes: string; txs: number; monto: number; }
-interface RiesgoEstado { estado: string; pct: number; total: number; }
-interface KPIs { totalClientes: string; riesgoAlto: number; riesgoMedio: number; precision: number; }
-interface TemaChurn { tema: string; count: number; }
+        setClientesData(clientesJson);
+        setConversacionesData(convJson);
+        setTransaccionesData(txsJson);
+      } catch (err) {
+        console.error('Error de conexión:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, []);
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function formatMes(mesStr: string): string {
-  const parts = mesStr.split('-');
-  return MES_LABELS[parts[1]] ?? mesStr;
-}
+  // Extraemos los motivos dinámicamente para la gráfica 2
+  const motivosKeys = conversacionesData.length > 0 
+    ? Object.keys(conversacionesData[0]).filter(k => k !== 'mes') 
+    : [];
+  const motifColors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6'];
 
-const CustomTooltipTx = ({ active, payload, label }: any) => {
+  // Tooltips Personalizados
+  const CustomTooltipBar = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-xl border border-slate-700">
+        {payload[0].payload.status}: <span className="text-indigo-400">{payload[0].value.toLocaleString()}</span>
+      </div>
+    );
+  };
+
+  const CustomTooltipConv = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-xl text-[10px] z-50">
+        <p className="font-black text-slate-800 mb-1 border-b border-slate-100 pb-1">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} style={{ color: entry.color }} className="font-bold flex justify-between gap-4 mt-0.5">
+            <span>{entry.name}:</span> <span>{entry.value}</span>
+          </p>
+        ))}
+      </div>
+    );
+  };
+
+  const CustomTooltipTx = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-xl text-[10px] z-50">
+        <p className="font-black text-slate-800 mb-1">{label}</p>
+        <p className="text-emerald-600 font-bold flex items-center gap-1">
+          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> ${payload[0]?.value}M MXN
+        </p>
+        <p className="text-slate-500 font-bold mt-0.5 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 bg-slate-400 rounded-full" /> {payload[1]?.value?.toLocaleString()} txs
+        </p>
+      </div>
+    );
+  };
+
+  const CustomTooltipDetalleTx = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
+  
+  // Filtramos la key "total" para mostrar solo los tipos de operación
+  const detalles = payload.filter((p: any) => p.dataKey !== 'total');
+  const total = payload.find((p: any) => p.dataKey === 'total')?.value;
+
   return (
-    <div className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 shadow-lg text-[10px] z-50">
-      <p className="font-bold text-slate-700 mb-0.5">{label}</p>
-      <p className="text-indigo-600 leading-tight">{payload[0]?.value?.toLocaleString('es-MX')} txs</p>
-      <p className="text-slate-500 leading-tight">${payload[1]?.value?.toFixed(1)}M MXN</p>
+    <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-xl text-[10px]">
+      <p className="font-black text-slate-800 mb-2 border-b pb-1">{label}</p>
+      <p className="text-indigo-600 font-bold mb-2">Total: ${total?.toFixed(2)}M</p>
+      <div className="space-y-1">
+        {detalles.map((d: any, i: number) => (
+          <div key={i} className="flex justify-between gap-4 text-slate-500">
+            <span className="font-medium">{d.name}:</span>
+            <span className="font-bold">${d.value.toFixed(2)}M</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
 
-// ─── Componente principal ─────────────────────────────────────────────────────
-export const Dashboard: React.FC = () => {
-  const [riesgoData, setRiesgoData]     = useState<RiesgoItem[]>([]);
-  const [txMensual, setTxMensual]       = useState<TxMensual[]>([]);
-  const [riesgoEstado, setRiesgoEstado] = useState<RiesgoEstado[]>([]);
-  const [temasChurn, setTemasChurn]     = useState<TemaChurn[]>([]);
-  const [kpis, setKpis] = useState<KPIs>({
-    totalClientes: '—',
-    riesgoAlto:    0,
-    riesgoMedio:   0,
-    precision:     94.2,
-  });
-  const [loadingData, setLoadingData] = useState(true);
-
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoadingData(true);
-      try {
-        const [
-          kpisRes,
-          riesgoDistRes,
-          txMensualRes,
-          riesgoEstadoRes,
-          temasRes,
-        ] = await Promise.all([
-          fetch(`${API_BASE}/api/dashboard/kpis`).then((r) => r.json()),
-          fetch(`${API_BASE}/api/dashboard/riesgo-distribucion`).then((r) => r.json()),
-          fetch(`${API_BASE}/api/dashboard/transacciones-mensuales`).then((r) => r.json()),
-          fetch(`${API_BASE}/api/dashboard/riesgo-por-estado?top=8`).then((r) => r.json()),
-          fetch(`${API_BASE}/api/dashboard/temas-conversaciones?riesgo=Alto`).then((r) => r.json()),
-        ]);
-
-        setKpis({
-          totalClientes: kpisRes.total_clientes.toLocaleString('es-MX'),
-          riesgoAlto:    kpisRes.riesgo_alto,
-          riesgoMedio:   kpisRes.riesgo_medio,
-          precision:     94.2,
-        });
-
-        setRiesgoData((riesgoDistRes as any[]).map((d) => ({
-          name:  d.riesgo,
-          value: d.count,
-          pct:   d.pct,
-          color: RIESGO_COLORS[d.riesgo] ?? '#94a3b8',
-        })));
-
-        setTxMensual((txMensualRes as any[]).map((d) => ({
-          mes:   formatMes(d.mes),
-          txs:   d.count,
-          monto: Math.round((d.monto / 1_000_000) * 10) / 10,
-        })));
-
-        setRiesgoEstado((riesgoEstadoRes as any[]).map((d) => ({
-          estado: d.estado,
-          pct:    d.pct_alto,
-          total:  d.total,
-        })));
-
-        setTemasChurn(temasRes as TemaChurn[]);
-      } catch (err) {
-        console.error('Error cargando datos del dashboard:', err);
-      } finally {
-        setLoadingData(false);
-      }
-    };
-    fetchAll();
-  }, []);
-
-  const totalTxs   = txMensual.reduce((acc, d) => acc + d.txs, 0);
-  const totalMonto = txMensual.reduce((acc, d) => acc + d.monto, 0);
-  const maxTema    = Math.max(...temasChurn.map((t) => t.count), 1);
+  if (loading) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
+        <Loader2 className="animate-spin text-indigo-600" size={32} />
+        <span className="text-xs font-bold uppercase tracking-widest">Calculando datos desde Parquet...</span>
+      </div>
+    );
+  }
 
   return (
-    // Redujimos los espacios globales (space-y-3 y pb-2 en lugar de pb-10)
-    <div className="space-y-3 animate-in fade-in duration-500 pb-2">
+    <div className="h-[90vh] flex flex-col space-y-4 animate-in fade-in duration-500 overflow-hidden pb-4">
       
-      {/* ── Encabezado ultra-compacto ── */}
-      {/*<div className="mb-1">
-        <h1 className="text-xl font-bold text-slate-900 leading-none">Havi Insights Analytics</h1>
-        <p className="text-[11px] text-slate-500 mt-1">
-          Vista Ejecutiva Global · {loadingData ? '…' : `${kpis.totalClientes} clientes evaluados`}
-        </p>
-      </div>*/}
-
-      {/* ── KPIs (Mismo Grid, pero asumiendo que StatCard es responsivo) ── */}
-      {/*<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard title="Base Evaluada" value={loadingData ? '…' : kpis.totalClientes} icon={<Users className="text-indigo-600" size={16} />} />
-        <StatCard title="Riesgo Alto" value={loadingData ? '…' : kpis.riesgoAlto.toLocaleString('es-MX')} icon={<AlertCircle className="text-rose-500" size={16} />} />
-        <StatCard title="Riesgo Medio" value={loadingData ? '…' : kpis.riesgoMedio.toLocaleString('es-MX')} icon={<TrendingDown className="text-amber-500" size={16} />} />
-        <StatCard title="Precisión de IA" value={`${kpis.precision}%`} icon={<Target className="text-emerald-600" size={16} />} />
-      </div>*/}
-
-      {/* ── Fila 1: Distribución (1 col) + Transacciones (2 cols) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      {/* ── Fila 1: Clientes y Conversaciones ── */}
+      <div className="flex gap-4 h-[45%] min-h-0">
         
-        {/* Distribución */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col justify-between col-span-1">
-          <div className="mb-1">
-            <h2 className="text-[13px] font-bold text-slate-800 leading-tight">Distribución de Riesgo</h2>
+        {/* Gráfica 1: Clientes (Churn vs No Churn) */}
+        <div className="h-64 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col p-4">
+          <div className="flex items-center gap-2 mb-4 shrink-0">
+            <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg"><Users size={16} /></div>
+            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Análisis de Retención</h2>
           </div>
-          {/* Gráfica reducida en altura */}
-          <ResponsiveContainer width="100%" height={120}>
-            <PieChart>
-              <Pie data={riesgoData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} paddingAngle={3} dataKey="value">
-                {riesgoData.map((entry, i) => <Cell key={i} fill={entry.color} strokeWidth={0} />)}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="flex justify-around items-center pt-2 border-t border-slate-100">
-            {riesgoData.map((d) => (
-              <div key={d.name} className="text-center">
-                <div className="flex items-center justify-center gap-1 mb-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: d.color }} />
-                  <span className="text-[9px] uppercase font-bold text-slate-500">{d.name}</span>
-                </div>
-                <p className="text-xs font-bold text-slate-800 tabular-nums">{d.pct}%</p>
-              </div>
-            ))}
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <BarChart data={clientesData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="status" /> {/* IMPORTANTE: Que coincida con "status" del backend */}
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="cantidad" radius={[4, 4, 0, 0]}> {/* IMPORTANTE: Que coincida con "cantidad" */}
+                  {clientesData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.status === 'Churn' ? '#f43f5e' : '#10b981'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Transacciones */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col justify-between lg:col-span-2">
-          <div className="flex items-start justify-between mb-1">
-            <div>
-              <h2 className="text-[13px] font-bold text-slate-800 leading-tight">Actividad Transaccional</h2>
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                {loadingData ? '…' : `${totalTxs.toLocaleString('es-MX')} txs · $${totalMonto.toFixed(0)}M MXN`}
-              </p>
-            </div>
-            <div className="flex flex-col items-end text-[9px] font-medium text-slate-400">
-              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-indigo-500 rounded-sm" />Volumen</span>
-              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-emerald-400 rounded-sm" />Monto</span>
-            </div>
+        {/* Gráfica 2: Motivos por Mes (Barras Verticales) */}
+        <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col p-4">
+          <div className="flex items-center gap-2 mb-2 shrink-0">
+            <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg"><MessageSquare size={16} /></div>
+            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Motivos Principales x Mes</h2>
           </div>
-          {/* Gráfica de área reducida a 140px */}
-          <ResponsiveContainer width="100%" height={140}>
-            <AreaChart data={txMensual} margin={{ top: 5, right: 0, left: -25, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradTx" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} /><stop offset="95%" stopColor="#6366f1" stopOpacity={0} /></linearGradient>
-                <linearGradient id="gradMonto" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.15} /><stop offset="95%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="mes" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="left" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
-              <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}M`} />
-              <Tooltip content={<CustomTooltipTx />} />
-              <Area yAxisId="left" type="monotone" dataKey="txs" stroke="#6366f1" strokeWidth={2} fill="url(#gradTx)" dot={false} />
-              <Area yAxisId="right" type="monotone" dataKey="monto" stroke="#10b981" strokeWidth={2} fill="url(#gradMonto)" dot={false} />
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <BarChart data={conversacionesData} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="mes" tick={{ fontSize: 9, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltipConv />} cursor={{ fill: '#f8fafc' }} />
+                {motivosKeys.map((key, index) => (
+                  <Bar key={key} dataKey={key} stackId="a" fill={motifColors[index % motifColors.length]} radius={index === motivosKeys.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} maxBarSize={40} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── Fila 2: Transacciones ── */}
+      <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col p-4 min-h-0">
+        <div className="flex items-center justify-between mb-4 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-rose-50 text-rose-600 rounded-lg"><Activity size={16} /></div>
+            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Mensualidades Totales</h2>
+          </div>
+          <div className="flex gap-4 text-[9px] font-bold text-slate-400 uppercase">
+             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Monto (M)</span>
+             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300" /> Volumen</span>
+          </div>
+        </div>
+        
+        <div className="flex-1 min-h-0">
+          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+            <AreaChart data={transaccionesData}>
+              <Tooltip content={<CustomTooltipDetalleTx />} />
+              <Area type="monotone" dataKey="total" stroke="#10b981" fill="url(#colorMonto)" strokeWidth={3} />
+              {/* Agregamos las áreas invisibles para que el tooltip capture los datos del desglose */}
+              {Object.keys(transaccionesData[0] || {})
+                .filter(k => k !== 'mes' && k !== 'total')
+                .map(key => <Area key={key} type="monotone" dataKey={key} stroke="none" fill="none" />)
+              }
             </AreaChart>
           </ResponsiveContainer>
         </div>
-      </div>
-
-      {/* ── Fila 2: Motivos de Churn (1 col) + Mapa (2 cols) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        
-        {/* Motivos principales de Churn */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col col-span-1">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-[13px] font-bold text-slate-800 leading-tight">Fricciones (NLP)</h2>
-            </div>
-            <MessageSquare size={12} className="text-indigo-400" />
-          </div>
-
-          {loadingData ? (
-            <div className="flex-1 flex items-center justify-center text-slate-300 text-xs">Cargando...</div>
-          ) : temasChurn.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-slate-300 text-xs">Sin datos</div>
-          ) : (
-            // Reducido a solo 5 items y menor espaciado (space-y-2)
-            <div className="flex-1 flex flex-col justify-between space-y-2">
-              {temasChurn.slice(0, 5).map((t, i) => {
-                const pct = Math.round((t.count / maxTema) * 100);
-                return (
-                  <div key={t.tema} className="flex items-center gap-2 w-full">
-                    <span className="text-[10px] font-medium text-slate-600 w-20 flex-shrink-0 truncate text-right">
-                      {t.tema}
-                    </span>
-                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700 ease-out"
-                        style={{ width: `${pct}%`, background: TEMA_COLORS[i % TEMA_COLORS.length] }}
-                      />
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-700 w-8 tabular-nums text-right">
-                      {t.count}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Mapa Geográfico */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col justify-between lg:col-span-2">
-          <div className="flex items-start justify-between mb-1">
-            <div>
-              <h2 className="text-[13px] font-bold text-slate-800 leading-tight">Concentración de Fuga</h2>
-            </div>
-            <div className="flex items-center gap-2 text-[8px] font-bold text-slate-500 uppercase">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-900" /> Crítico</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-700" /> Alto</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-slate-400" /> Medio</span>
-            </div>
-          </div>
-
-          {/* Altura del mapa drásticamente reducida a 180px */}
-          <div className="h-[180px] w-full rounded-lg overflow-hidden relative bg-slate-50/50 mt-1">
-             <MapaMexico datos={riesgoEstado} />
-          </div>
-        </div>
-
       </div>
 
     </div>

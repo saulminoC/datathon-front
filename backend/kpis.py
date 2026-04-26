@@ -64,45 +64,22 @@ async def get_meses():
 
 @router.get("/api/dashboard/global-kpis")
 async def get_global_kpis(mes_filtro: str = Query("2026-04")):
-    df = _get_df()
+    # ... (carga de datos igual) ...
+    def get_metrics(df):
+        if df.empty: return 0, 0, 0, 0 # Agregamos un 0
+        return (
+            float(df['monto_total'].sum()),
+            int(df['num_inputs'].sum()),
+            int(df['nuevos_churn'].sum()),
+            int(df['num_transacciones'].sum()) # NUEVA COLUMNA
+        )
 
-    try:
-        fecha_actual = datetime.strptime(mes_filtro, "%Y-%m")
-        fecha_previa = fecha_actual - pd.DateOffset(months=1)
-        mes_anterior_str = fecha_previa.strftime("%Y-%m")
+    m_act, i_act, c_act, t_act = get_metrics(df_actual)
+    m_pre, i_pre, c_pre, t_pre = get_metrics(df_previo)
 
-        df_actual = df[df["mes"].dt.strftime("%Y-%m") == mes_filtro]
-        df_previo = df[df["mes"].dt.strftime("%Y-%m") == mes_anterior_str]
-
-        def get_metrics(df_mes: pd.DataFrame):
-            if df_mes.empty:
-                return 0.0, 0, 0
-            return (
-                float(df_mes["monto_total"].sum()),
-                int(df_mes["num_inputs"].sum()),
-                int(df_mes["nuevos_churn"].sum()),
-            )
-
-        m_act, i_act, c_act = get_metrics(df_actual)
-        m_pre, i_pre, c_pre = get_metrics(df_previo)
-
-        def calc_diff(actual: float, previo: float, invertido: bool = False):
-            if previo > 0:
-                diff = ((actual - previo) / previo) * 100
-            elif actual > 0:
-                diff = 100.0
-            else:
-                diff = 0.0
-            es_bueno = (diff < 0) if invertido else (diff >= 0)
-            return {"valor": actual, "porcentaje": round(diff, 1), "es_bueno": es_bueno}
-
-        return {
-            "monto_total":   calc_diff(m_act, m_pre),
-            "num_inputs":    calc_diff(i_act, i_pre),
-            "nuevos_churns": calc_diff(c_act, c_pre, invertido=True),
-        }
-
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"Formato inválido: '{mes_filtro}'. Usa YYYY-MM.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "monto_total": calc_diff(m_act, m_pre),
+        "num_inputs": calc_diff(i_act, i_pre),
+        "nuevos_churns": calc_diff(c_act, c_pre, invertido=True),
+        "num_transacciones": calc_diff(t_act, t_pre) # NUEVO KPI
+    }

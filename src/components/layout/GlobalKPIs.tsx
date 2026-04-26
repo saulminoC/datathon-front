@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  DollarSign, MessageSquareText, UserMinus,
+  DollarSign, MessageSquareText, UserMinus, Activity,
   TrendingUp, TrendingDown, Calendar, AlertCircle,
 } from 'lucide-react';
 
@@ -16,15 +16,14 @@ interface KpisData {
   monto_total: KpiValue;
   num_inputs: KpiValue;
   nuevos_churns: KpiValue;
+  num_transacciones: KpiValue; // ✅ Nuevo KPI de Diego
 }
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const API = 'http://localhost:8000';
 
-// Meses de respaldo por si /api/dashboard/meses falla
-// Ajusta estos valores a los meses reales de tu parquet
-const MESES_FALLBACK = ['2025-12','2025-11','2025-10','2025-09','2025-08','2025-07','2025-06','2025-05','2025-04','2025-03','2025-02','2025-01'];
+const MESES_FALLBACK = ['2026-04','2026-03','2026-02','2026-01','2025-12'];
 
 const formatearMes = (ym: string): string => {
   const [year, month] = ym.split('-');
@@ -50,9 +49,9 @@ const Card: React.FC<CardProps> = ({ title, icon: Icon, kpi, colorClass, formatV
       <Icon size={18} />
     </div>
     <div>
-      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{title}</p>
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter leading-none mb-1">{title}</p>
       <div className="flex items-center gap-2">
-        <span className="text-lg font-black text-slate-900 tracking-tight">
+        <span className="text-lg font-black text-slate-900 tracking-tight leading-none">
           {formatValue ? formatValue(kpi.valor) : kpi.valor.toLocaleString('es-MX')}
         </span>
         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5
@@ -74,7 +73,7 @@ export const GlobalKPIs: React.FC = () => {
   const [error, setError] = useState(false);
   const [loadingKpis, setLoadingKpis] = useState(false);
 
-  // 1️⃣ Cargar lista de meses (con fallback si falla)
+  // 1️⃣ Cargar lista de meses
   useEffect(() => {
     const fetchMeses = async () => {
       try {
@@ -86,7 +85,7 @@ export const GlobalKPIs: React.FC = () => {
         setMeses(lista);
         setMes(lista[0]);
       } catch (err) {
-        console.warn('[GlobalKPIs] /meses falló, usando fallback:', err);
+        console.warn('[GlobalKPIs] Fallback meses:', err);
         setMeses(MESES_FALLBACK);
         setMes(MESES_FALLBACK[0]);
       }
@@ -107,7 +106,7 @@ export const GlobalKPIs: React.FC = () => {
         const json: KpisData = await res.json();
         setData(json);
       } catch (err) {
-        console.error('[GlobalKPIs] Error al cargar KPIs:', err);
+        console.error('[GlobalKPIs] Error:', err);
         setError(true);
       } finally {
         setLoadingKpis(false);
@@ -117,18 +116,15 @@ export const GlobalKPIs: React.FC = () => {
     fetchKPIs();
   }, [mes]);
 
-  // ── Estados de UI ───────────────────────────────────────────────────────────
-
-  // Todavía resolviendo los meses
   if (!mes) {
     return <div className="h-20 bg-slate-100 animate-pulse rounded-xl mb-6" />;
   }
 
   return (
-    <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm mb-6 flex items-center gap-6">
+    <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm mb-6 flex items-center gap-4">
 
       {/* Selector de mes */}
-      <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border">
+      <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border shrink-0">
         <Calendar size={14} className="text-slate-400" />
         <select
           value={mes}
@@ -141,24 +137,23 @@ export const GlobalKPIs: React.FC = () => {
         </select>
       </div>
 
-      {/* Error al cargar KPIs */}
+      {/* Error View */}
       {error && (
         <div className="flex-1 flex items-center gap-2 text-rose-600 text-xs font-bold">
-          <AlertCircle size={14} />
-          Error al cargar KPIs — revisa la terminal del backend
+          <AlertCircle size={14} /> Error al conectar con la API de KPIs
         </div>
       )}
 
-      {/* Loading de KPIs */}
+      {/* Skeleton Loading */}
       {loadingKpis && !error && (
-        <div className="flex-1 flex gap-6">
-          {[1, 2, 3].map(i => (
+        <div className="flex-1 flex gap-4">
+          {[1, 2, 3, 4].map(i => (
             <div key={i} className="flex-1 h-10 bg-slate-100 animate-pulse rounded-lg" />
           ))}
         </div>
       )}
 
-      {/* KPI Cards */}
+      {/* KPI Cards (4 Columnas) */}
       {!loadingKpis && !error && data && (
         <>
           <Card
@@ -169,9 +164,15 @@ export const GlobalKPIs: React.FC = () => {
             formatValue={formatMonto}
           />
           <Card
-            title="Uso Chatbot Havi"
+            title="Uso Chatbot"
             icon={MessageSquareText}
             kpi={data.num_inputs}
+            colorClass="bg-indigo-50 text-indigo-600"
+          />
+          <Card
+            title="Transacciones"
+            icon={Activity}
+            kpi={data.num_transacciones}
             colorClass="bg-indigo-50 text-indigo-600"
           />
           <Card

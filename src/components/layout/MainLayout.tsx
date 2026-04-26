@@ -54,7 +54,7 @@ export const MainLayout = () => {
               <span className="font-medium">Motor IA</span>
             </Link>
 
-            <Link 
+            {/*<Link 
               to="/panel/riesgo-alto" 
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 location.pathname === '/panel/riesgo-alto' 
@@ -63,7 +63,7 @@ export const MainLayout = () => {
             >
               <ShieldAlert size={20} />
               <span className="font-medium">Top Riesgo</span>
-            </Link>
+            </Link>*/}
           </nav>
         </div>
 

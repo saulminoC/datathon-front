@@ -1,24 +1,40 @@
+#%matplotlib inline
 import pandas as pd
-import os
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Lista de tus archivos
-files = [
-    "ClientesCleanOF.parquet", 
-    "ConversasionesClean.parquet", 
-    "TransaccionesClean.parquet"
-]
+# Cargar el DataFrame
+df = pd.read_parquet("ClientesCleanOF.parquet")
 
-print("🔍 EXPLORADOR DE COLUMNAS HAVI\n" + "="*30)
+# 1. Crear la figura y los ejes
+fig, ax = plt.subplots(figsize=(10, 6))
 
-for f in files:
-    # Ajusta la ruta si tus archivos están dentro de 'modelo/'
-    ruta = f"modelo/{f}" if os.path.exists(f"modelo/{f}") else f
-    
-    if os.path.exists(ruta):
-        df = pd.read_parquet(ruta)
-        print(f"\n📄 ARCHIVO: {f}")
-        print(f"✅ COLUMNAS: {df.columns.tolist()}")
-    else:
-        print(f"\n❌ NO ENCONTRADO: {f}")
+# 2. Generar el gráfico de dispersión (Scatter plot)
+sns.scatterplot(
+    data=df,
+    x="edad",
+    y="ingreso_mensual_mxn",
+    hue="UsuarioChurn",
+    palette={"CHURN": "#e74c3c", "NO CHURN": "#2ecc71"}, # Ajusta los textos si tus datos dicen otra cosa (ej. "Si"/"No")
+    alpha=0.6,      # Transparencia vital para ver "clústers" cuando los puntos se amontonan
+    edgecolor=None, # Quitar bordes de los puntos para mayor limpieza visual
+    s=40,           # Tamaño de los puntos
+    ax=ax
+)
 
-print("\n" + "="*30)
+# 3. Personalizar etiquetas y título
+ax.set_title("Relación entre Edad e Ingreso Mensual vs. Churn", fontsize=14, pad=15)
+ax.set_xlabel("Edad (Años)", fontsize=12)
+ax.set_ylabel("Ingreso Mensual Estimado (MXN)", fontsize=12)
+
+# 4. Formatear el eje Y para que los miles tengan coma (ej. 15000 -> 15,000)
+ax.get_yaxis().set_major_formatter(plt.FuncFormatter(lambda x, loc: f"${int(x):,}"))
+
+# Quitar los bordes superior y derecho
+sns.despine()
+
+# Ajustar los márgenes automáticamente
+plt.tight_layout()
+
+# 5. Mostrar la gráfica
+plt.show()

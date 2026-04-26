@@ -1,13 +1,13 @@
 import pandas as pd
 from pathlib import Path
-from datetime import datetime
 from fastapi import APIRouter, Query, HTTPException
+from dateutil.relativedelta import relativedelta
 
 router = APIRouter()
 
-# backend/kpis.py  →  BASE_DIR = backend/  →  parquet en backend/modelo/kpis.parquet
 BASE_DIR = Path(__file__).parent
-_PARQUET_PATH = BASE_DIR / "modelo" / "kpis.parquet"
+_PARQUET_PATH = BASE_DIR / "kpis-2.parquet"
+
 
 print(f"[kpis] __file__       = {__file__}")
 print(f"[kpis] BASE_DIR       = {BASE_DIR}")
@@ -20,7 +20,7 @@ def cargar_datos() -> pd.DataFrame | None:
         df = pd.read_parquet(_PARQUET_PATH)
         df["mes"] = pd.to_datetime(df["mes"], errors="coerce")
         filas_antes = len(df)
-        df = df.dropna(subset=["mes"])  # elimina filas con mes = NaN
+        df = df.dropna(subset=["mes"])
         filas_dropped = filas_antes - len(df)
         if filas_dropped:
             print(f"[kpis] ⚠️  Se eliminaron {filas_dropped} filas con mes=NaN")
@@ -63,23 +63,57 @@ async def get_meses():
 # ── KPIs globales ─────────────────────────────────────────────────────────────
 
 @router.get("/api/dashboard/global-kpis")
-async def get_global_kpis(mes_filtro: str = Query("2026-04")):
-    # ... (carga de datos igual) ...
-    def get_metrics(df):
-        if df.empty: return 0, 0, 0, 0 # Agregamos un 0
+async def get_global_kpis(mes_filtro: str = Query("2025-12")):
+    df = _get_df()
+
+    # ── Parsear el mes solicitado ──────────────────────────────────────────────
+    try:
+        mes_actual = pd.to_datetime(mes_filtro + "-01")
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Formato de mes inválido: '{mes_filtro}'. Usa YYYY-MM.")
+
+    mes_previo = mes_actual - relativedelta(months=1)
+
+    # ── Filtrar filas por mes ──────────────────────────────────────────────────
+    df_actual = df[df["mes"].dt.to_period("M") == mes_actual.to_period("M")]
+    df_previo = df[df["mes"].dt.to_period("M") == mes_previo.to_period("M")]
+
+    # ── Extraer métricas ───────────────────────────────────────────────────────
+    def get_metrics(sub: pd.DataFrame):
+        if sub.empty:
+            return 0.0, 0, 0, 0
         return (
-            float(df['monto_total'].sum()),
-            int(df['num_inputs'].sum()),
-            int(df['nuevos_churn'].sum()),
-            int(df['num_transacciones'].sum()) # NUEVA COLUMNA
+            float(sub["monto_total"].sum()),
+            int(sub["num_inputs"].sum()),
+            int(sub["nuevos_churn"].sum()),
+            int(sub["num_transacciones"].sum()),
         )
 
     m_act, i_act, c_act, t_act = get_metrics(df_actual)
     m_pre, i_pre, c_pre, t_pre = get_metrics(df_previo)
 
+    # ── Calcular diferencia porcentual ────────────────────────────────────────
+    def calc_diff(actual: float, previo: float, invertido: bool = False) -> dict:
+        """
+        Devuelve el valor actual + porcentaje de cambio vs mes previo.
+        invertido=True significa que bajar es bueno (ej: churns).
+        """
+        if previo == 0:
+            pct = 100.0 if actual > 0 else 0.0
+        else:
+            pct = round(((actual - previo) / abs(previo)) * 100, 1)
+
+        es_bueno = (pct >= 0) if not invertido else (pct <= 0)
+
+        return {
+            "valor":      actual,
+            "porcentaje": pct,
+            "es_bueno":   es_bueno,
+        }
+
     return {
-        "monto_total": calc_diff(m_act, m_pre),
-        "num_inputs": calc_diff(i_act, i_pre),
-        "nuevos_churns": calc_diff(c_act, c_pre, invertido=True),
-        "num_transacciones": calc_diff(t_act, t_pre) # NUEVO KPI
+        "monto_total":       calc_diff(m_act, m_pre),
+        "num_inputs":        calc_diff(i_act, i_pre),
+        "nuevos_churns":     calc_diff(c_act, c_pre, invertido=True),
+        "num_transacciones": calc_diff(t_act, t_pre),
     }

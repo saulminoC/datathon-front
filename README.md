@@ -1,73 +1,47 @@
-# React + TypeScript + Vite
+# 🚀 Havi Insights | System 32
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![Havi Insights](https://img.shields.io/badge/Status-Datathon_Ready-success?style=for-the-badge)
+![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/Frontend-React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![CatBoost](https://img.shields.io/badge/AI_Model-CatBoost-FFCC00?style=for-the-badge)
 
-Currently, two official plugins are available:
+**Havi Insights** es una plataforma integral (End-to-End) de inteligencia de negocios y prevención de Churn (abandono de clientes) diseñada para el sector de la banca digital. 
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+No es un simple dashboard de métricas históricas; es una **herramienta predictiva y prescriptiva** que utiliza Inteligencia Artificial para identificar a los usuarios con mayor riesgo de fuga y sugerir acciones comerciales tácticas para retenerlos antes de que vacíen sus cuentas.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## ✨ Características Principales
 
-## Expanding the ESLint configuration
+* 🧠 **Motor IA Predictivo:** Integración de un modelo de Machine Learning (`CatBoost`) capaz de procesar lotes masivos de usuarios (.csv) y devolver predicciones de churn en milisegundos.
+* 🎯 **Analítica Prescriptiva:** El sistema no solo da un *Score de Riesgo*, sino que evalúa el perfil del cliente para sugerir acciones de retención precisas (Ej. *Ofertas de Cashback, Exención de Anualidad*).
+* 🗺️ **Inteligencia Geográfica:** Mapa de calor interactivo que identifica los *hotspots* de riesgo a nivel nacional.
+* ⚡ **Arquitectura Big Data:** Backend optimizado para lectura de archivos `.parquet`, garantizando escalabilidad y bajo consumo de memoria.
+* 📊 **Tableros Dinámicos:** UI responsiva construida con componentes interactivos y tablas que se adaptan dinámicamente a la salida del modelo de IA.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🛠️ Stack Tecnológico
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+**Frontend:**
+* React 19 + TypeScript
+* Vite (Bundler)
+* Tailwind CSS (Estilos)
+* Recharts & React Simple Maps (Visualización de Datos)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+**Backend & Data Science:**
+* Python 3.10+
+* FastAPI (Core API)
+* Pandas & FastParquet (Procesamiento de Datos)
+* CatBoost & Scikit-Learn (Machine Learning)
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## ⚙️ Instrucciones de Instalación y Ejecución
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Sigue estos pasos para levantar el entorno de desarrollo de manera local.
+
+### 1. Clonar el repositorio
+```bash
+git clone <tu-url-del-repositorio>
+cd datathon-front

@@ -43,5 +43,5 @@ Sigue estos pasos para levantar el entorno de desarrollo de manera local.
 
 ### 1. Clonar el repositorio
 ```bash
-git clone <tu-url-del-repositorio>
+git clone <https://github.com/saulminoC/datathon-front.git>
 cd datathon-front

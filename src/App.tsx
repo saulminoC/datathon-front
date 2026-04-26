@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Predicciones } from './pages/Predicciones';
+import { RiesgoAlto } from './pages/RiesgoAlto'; // <-- 1. IMPORTAMOS LA NUEVA PÁGINA
 import { MainLayout } from './components/layout/MainLayout';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         <Route path="/panel" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="predicciones" element={<Predicciones />} />
+          <Route path="riesgo-alto" element={<RiesgoAlto />} /> {/* <-- 2. AGREGAMOS LA RUTA */}
         </Route>
 
         {/* Si escriben una URL que no existe, los regresamos al Login */}

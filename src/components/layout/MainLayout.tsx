@@ -1,6 +1,7 @@
 // src/components/layout/MainLayout.tsx
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BrainCircuit, LogOut } from 'lucide-react';
+// 1. Agregamos ShieldAlert a las importaciones de íconos
+import { LayoutDashboard, BrainCircuit, ShieldAlert, LogOut } from 'lucide-react';
 
 export const MainLayout = () => {
   const location = useLocation();
@@ -49,6 +50,20 @@ export const MainLayout = () => {
               <BrainCircuit size={20} />
               <span className="font-medium">Motor IA</span>
             </Link>
+
+            {/* ---> 2. NUEVO BOTÓN: RIESGO ALTO <--- */}
+            <Link 
+              to="/panel/riesgo-alto" 
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                location.pathname === '/panel/riesgo-alto' 
+                  ? 'bg-rose-50 text-rose-700' // Le puse un tono rojo/rose para indicar "Riesgo" cuando está activo
+                  : 'text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              <ShieldAlert size={20} />
+              <span className="font-medium">Top Riesgo</span>
+            </Link>
+
           </nav>
         </div>
 

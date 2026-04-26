@@ -68,8 +68,8 @@ export const MapaMexico: React.FC<MapaProps> = ({ datos }) => {
                   key={geo.rsmKey}
                   geography={geo}
                   fill={getColor(item)}
-                  stroke="#ffffff"
-                  strokeWidth={0.5}
+                  stroke="#000000"
+                  strokeWidth={1}
                   onMouseEnter={(e) => {
                     if (item) {
                       setTooltip({

@@ -1,7 +1,10 @@
 // src/components/layout/MainLayout.tsx
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-// 1. Agregamos ShieldAlert a las importaciones de íconos
 import { LayoutDashboard, BrainCircuit, ShieldAlert, LogOut } from 'lucide-react';
+
+// 1. Importamos tu nuevo componente de KPIs Globales
+// (Ajusta esta ruta dependiendo de en qué carpeta guardaste GlobalKPIs.tsx)
+import GlobalKPIs from './GlobalKPIs';
 
 export const MainLayout = () => {
   const location = useLocation();
@@ -19,7 +22,7 @@ export const MainLayout = () => {
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Sidebar Modularizado */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between">
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0">
         
         {/* Contenedor Superior (Logo y Navegación) */}
         <div>
@@ -51,12 +54,11 @@ export const MainLayout = () => {
               <span className="font-medium">Motor IA</span>
             </Link>
 
-            {/* ---> 2. NUEVO BOTÓN: RIESGO ALTO <--- */}
             <Link 
               to="/panel/riesgo-alto" 
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 location.pathname === '/panel/riesgo-alto' 
-                  ? 'bg-rose-50 text-rose-700' // Le puse un tono rojo/rose para indicar "Riesgo" cuando está activo
+                  ? 'bg-rose-50 text-rose-700' 
                   : 'text-slate-500 hover:bg-slate-100'
               }`}
             >
@@ -82,20 +84,15 @@ export const MainLayout = () => {
 
       {/* Contenido Principal */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/*<header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-          <h2 className="text-lg font-semibold text-slate-700">Panel de Control Proactivo</h2>
+        <div className="p-6 md:p-8 flex-1 overflow-y-auto">
           
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600">Administrador</span>
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
-              AD
-            </div>
-          </div>
-        </header>*/}
-        
-        <div className="p-8 flex-1 overflow-y-auto">
-          {/* Aquí React Router inyecta la página que corresponda */}
+          {/* === AQUÍ ESTÁ LA MAGIA === */}
+          {/* Este componente siempre se verá en todas las pestañas */}
+          <GlobalKPIs />
+
+          {/* Aquí React Router inyecta la página que corresponda (Dashboard, Motor IA, etc) */}
           <Outlet /> 
+          
         </div>
       </main>
     </div>

@@ -147,12 +147,12 @@ export const Dashboard: React.FC = () => {
       </div>*/}
 
       {/* ── KPIs (Mismo Grid, pero asumiendo que StatCard es responsivo) ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/*<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard title="Base Evaluada" value={loadingData ? '…' : kpis.totalClientes} icon={<Users className="text-indigo-600" size={16} />} />
         <StatCard title="Riesgo Alto" value={loadingData ? '…' : kpis.riesgoAlto.toLocaleString('es-MX')} icon={<AlertCircle className="text-rose-500" size={16} />} />
         <StatCard title="Riesgo Medio" value={loadingData ? '…' : kpis.riesgoMedio.toLocaleString('es-MX')} icon={<TrendingDown className="text-amber-500" size={16} />} />
         <StatCard title="Precisión de IA" value={`${kpis.precision}%`} icon={<Target className="text-emerald-600" size={16} />} />
-      </div>
+      </div>*/}
 
       {/* ── Fila 1: Distribución (1 col) + Transacciones (2 cols) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">

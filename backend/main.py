@@ -1,25 +1,46 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import numpy as np
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
+import joblib
+import json
+import io
+from datetime import datetime, timedelta
+
+from kpis import router as kpis_router
+
 
 # ─── App ─────────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="Havi Insights API", version="1.0.0")
 
+# --- CONFIGURACIÓN DE CORS (Para que React no dé error) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173"
-    ], # Pon explícitamente las URLs de tu entorno de desarrollo
-    allow_credentials=True,    # Cambia esto a True
+    allow_origins=["*"], # En desarrollo permitimos todo
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(kpis_router)
+
+# ─── CARGA DEL MODELO DE IA (Global para no recargar en cada petición) ───────
+try:
+    print("Cargando cerebro CatBoost...")
+    model_cat = joblib.load("modelo/catboost_churn_model.pkl")
+    feature_cols = joblib.load("modelo/feature_columns.pkl")
+    cat_features = joblib.load("modelo/cat_features.pkl")
+    
+    with open("modelo/dtypes.json") as f:
+        dtypes_json = json.load(f)
+    print("¡Modelo IA cargado con éxito! 🚀")
+except Exception as e:
+    print(f"Advertencia: No se pudo cargar el modelo. ¿Están los archivos en la carpeta backend? Error: {e}")
+    model_cat = None
 
 # ─── Carga de datos al arrancar ───────────────────────────────────────────────
 
@@ -78,6 +99,70 @@ def safe_records(df: pd.DataFrame) -> list:
     return df.where(pd.notnull(df), None).to_dict(orient="records")
 
 
+# ─── ENDPOINT PARA CARGA MASIVA DE EXCEL/CSV ───
+@app.post("/api/predict/batch")
+async def predict_batch(file: UploadFile = File(...)):
+    if 'model_cat' not in globals() or model_cat is None:
+        raise HTTPException(status_code=500, detail="Modelo no cargado.")
+
+    try:
+        contents = await file.read()
+        # Leemos el CSV (probamos con coma y punto y coma)
+        try:
+            df_nuevo = pd.read_csv(io.BytesIO(contents))
+        except:
+            df_nuevo = pd.read_csv(io.BytesIO(contents), sep=';')
+        
+        df_new = df_nuevo.copy()
+
+        # ── COLUMNAS QUE ME PASASTE ──
+        # El modelo espera un orden específico (feature_cols). 
+        # Si no existen en el Excel, las creamos con valores neutros.
+        for col in feature_cols:
+            if col not in df_new.columns:
+                if col in cat_features:
+                    df_new[col] = "SIN REGISTRO"
+                else:
+                    df_new[col] = 0
+
+        # Preparamos los datos para CatBoost
+        X_new = df_new[feature_cols].copy()
+        for c in cat_features:
+            X_new[c] = X_new[c].astype("string")
+
+        # Ejecutamos la predicción real
+        proba_new = model_cat.predict_proba(X_new)[:, 1]
+        
+        # ── CREAMOS EL OUTPUT BASADO EN TUS COLUMNAS REALES ──
+        df_final = pd.DataFrame({
+            "user_id": df_new.get("user_id", [f"N-{i}" for i in range(len(X_new))]),
+            "edad": df_new.get("edad", 0),
+            "num_productos_activos": df_new.get("num_productos_activos", 0),
+            "satisfaccion_1_10": df_new.get("satisfaccion_1_10", 0),
+            "ingreso_mensual_mxn": df_new.get("ingreso_mensual_mxn", 0),
+            "prob_churn": (proba_new * 100).astype(int),
+            "ciudad": df_new.get("ciudad", "Desconocida")
+        })
+
+        # Top 5 ciudades para la gráfica
+        top_cities = df_final.groupby('ciudad')['prob_churn'].mean().sort_values(ascending=False).head(5).reset_index()
+        
+        # Scatter data para la cuarta gráfica (Ingreso vs Churn)
+        scatter_data = df_final[['ingreso_mensual_mxn', 'prob_churn']].to_dict(orient="records")
+
+        return {
+            "table_data": df_final.sort_values(by='prob_churn', ascending=False).head(10).to_dict(orient="records"),
+            "top_cities": top_cities.to_dict(orient="records"),
+            "summary": {
+                "total_registros": len(df_final),
+                "promedio_churn": float(df_final['prob_churn'].mean())
+            },
+            "scatter_data": scatter_data
+        }
+
+    except Exception as e:
+        print(f"Error en el motor: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 # ─── KPIs generales ──────────────────────────────────────────────────────────
 
 @app.get("/api/dashboard/kpis")
@@ -297,7 +382,7 @@ def get_clientes_riesgo_alto(
 # ─── Predicción individual de un cliente ──────────────────────────────────────
 
 @app.get("/api/predict/{user_id}")
-def predict_cliente(user_id: str):
+async def predict_cliente(user_id: str):
     row = df_main[df_main["user_id"] == user_id]
     if row.empty:
         raise HTTPException(status_code=404, detail=f"Cliente {user_id} no encontrado")
@@ -318,15 +403,47 @@ def predict_cliente(user_id: str):
     conv_cliente = conversaciones[conversaciones["user_id"] == user_id]
     num_conv     = len(conv_cliente)
 
-    # Sugerencia basada en el score
+    # --- LÓGICA DE MODELO (Si está cargado, sobrescribe el score manual) ---
     score = float(r["churn_score"])
-    if score >= 70:
-        suggestion = "Contacto urgente: llamada personalizada con oferta de retención"
-    elif score >= 40:
-        suggestion = "Enviar oferta personalizada según perfil de productos"
-    else:
-        suggestion = "Monitoreo estándar, cliente estable"
+    
+    if model_cat is not None:
+        df_user = row.copy().to_frame().T if isinstance(row, pd.Series) else row.copy()
+        
+        # Formateamos los datos exactamente como el modelo los pide
+        for col in feature_cols:
+            if col not in df_user.columns:
+                if col in cat_features:
+                    df_user[col] = "SIN REGISTRO"
+                else:
+                    df_user[col] = 0
 
+        X_new = df_user[feature_cols].copy()
+
+        for c in cat_features:
+            X_new[c] = X_new[c].astype("string")
+
+        # Hacemos la predicción con CatBoost
+        proba_new = model_cat.predict_proba(X_new)[:, 1]
+        score = int(proba_new[0] * 100) # Lo convertimos a porcentaje
+
+        # Generamos sugerencia IA
+        if score >= 80:
+            suggestion = "Ofrecer exención de anualidad urgente"
+        elif score >= 60:
+            suggestion = "Enviar promoción de cashback al 2%"
+        else:
+            suggestion = "Mantener monitoreo regular"
+            
+    else:
+        # Fallback: Sugerencia manual basada en el score heurístico antiguo
+        if score >= 70:
+            suggestion = "Contacto urgente: llamada personalizada con oferta de retención"
+        elif score >= 40:
+            suggestion = "Enviar oferta personalizada según perfil de productos"
+        else:
+            suggestion = "Monitoreo estándar, cliente estable"
+
+    # Retornamos el payload completo y enriquecido combinando ambos mundos
     return {
         "id":     user_id,
         "score":  score,
@@ -450,3 +567,4 @@ def root():
         "productos":     len(productos),
         "conversaciones": len(conversaciones),
     }
+    

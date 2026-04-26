@@ -1,0 +1,7 @@
+user_id,estado,ciudad,dias_desde_ultimo_login,satisfaccion_1_10,saldo_actual
+USR-9901,Nuevo León,Monterrey,45,3,1500
+USR-9902,Ciudad de México,CDMX,2,9,12000
+USR-9903,Jalisco,Guadalajara,28,4,300
+USR-9904,Estado de México,Toluca,5,8,50000
+USR-9905,Baja California,Tijuana,60,2,0
+USR-9906,Yucatán,Mérida,15,5,4500
